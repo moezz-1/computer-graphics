@@ -1,0 +1,3 @@
+D:/cs/Computer graphics/files/CG_Project/cg_project/build/CMakeFiles/CGProject.dir
+D:/cs/Computer graphics/files/CG_Project/cg_project/build/CMakeFiles/edit_cache.dir
+D:/cs/Computer graphics/files/CG_Project/cg_project/build/CMakeFiles/rebuild_cache.dir

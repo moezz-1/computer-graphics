@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Computer Graphics Project — Interactive Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg0: #0a0c10; --bg1: #111520; --bg2: #181e2a; --bg3: #1e2535;
+    --accent: #22c8e8; --accent2: #f97316; --accent3: #a78bfa;
+    --green: #4ade80; --yellow: #fbbf24; --red: #f87171;
+    --text1: #e8eaf0; --text2: #8892a4; --text3: #4a5568;
+    --border: #2a3347;
+  }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg0);
+    color: var(--text1);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Top Bar ── */
+  #topbar {
+    background: var(--bg1);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  #topbar .logo {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    margin-right: 12px;
+  }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    color: var(--text2);
+    background: none;
+  }
+  .tab:hover { background: var(--bg3); color: var(--text1); }
+  .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* ── Main layout ── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 220px;
+    background: var(--bg1);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  .section {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section h3 {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--text1);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    margin-bottom: 4px;
+    transition: all 0.12s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  .btn.danger { border-color: var(--red); color: var(--red); }
+  .btn.danger:hover { background: var(--red); color: #000; }
+
+  label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 3px; margin-top: 6px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  select {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text1);
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .color-row {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .color-swatch {
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.1s;
+  }
+  .color-swatch.sel { border-color: white; }
+
+  /* ── Canvas ── */
+  #canvasWrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #090b0f;
+  }
+  #cgCanvas {
+    position: absolute;
+    top: 0; left: 0;
+    cursor: crosshair;
+  }
+
+  /* ── Right panel ── */
+  #rightPanel {
+    width: 220px;
+    background: var(--bg1);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  #perfCanvas {
+    width: 220px;
+    height: 200px;
+    flex-shrink: 0;
+  }
+  #log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+  .log-line { padding: 1px 0; border-bottom: 1px solid #ffffff08; }
+  .log-line.ok   { color: var(--green); }
+  .log-line.info { color: var(--accent); }
+  .log-line.perf { color: var(--yellow); }
+
+  /* ── Status bar ── */
+  #statusbar {
+    background: var(--bg1);
+    border-top: 1px solid var(--border);
+    padding: 0 16px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text2);
+    flex-shrink: 0;
+  }
+  .stat { color: var(--accent); }
+  .fps-badge {
+    margin-left: auto;
+    background: var(--bg3);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--green);
+  }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div id="topbar">
+  <span class="logo">⬡ CG DEMO</span>
+  <button class="tab active" onclick="setMode('draw')">Draw</button>
+  <button class="tab" onclick="setMode('transform')">Transform</button>
+  <button class="tab" onclick="setMode('clip')">Clipping</button>
+  <button class="tab" onclick="setMode('curves')">Curves</button>
+  <button class="tab" onclick="setMode('perf')">Performance</button>
+</div>
+
+<!-- Main -->
+<div id="main">
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+
+    <!-- Drawing panel -->
+    <div class="section" id="panelDraw">
+      <h3>Algorithm</h3>
+      <button class="btn active" id="btnDDA"  onclick="setLineAlgo('dda')">DDA Line</button>
+      <button class="btn" id="btnBres" onclick="setLineAlgo('bres')">Bresenham Line</button>
+      <button class="btn" id="btnMC"   onclick="setLineAlgo('mc')">Midpoint Circle</button>
+      <button class="btn" id="btnBC"   onclick="setLineAlgo('bc')">Bresenham Circle</button>
+      <label>Circle Radius: <span id="rLbl">40</span></label>
+      <input type="range" id="rSlider" min="5" max="150" value="40"
+             oninput="circRadius=+this.value;document.getElementById('rLbl').textContent=this.value">
+    </div>
+
+    <div class="section" id="panelTransform" style="display:none">
+      <h3>Transform</h3>
+      <button class="btn" onclick="applyTransform('translate')">Translate</button>
+      <button class="btn" onclick="applyTransform('rotate')">Rotate</button>
+      <button class="btn" onclick="applyTransform('scale')">Scale</button>
+      <button class="btn" onclick="applyTransform('reflectX')">Reflect X</button>
+      <button class="btn" onclick="applyTransform('reflectY')">Reflect Y</button>
+      <button class="btn" onclick="applyTransform('shear')">Shear</button>
+      <button class="btn danger" onclick="resetTransform()">Reset</button>
+      <label>TX: <span id="txLbl">20</span></label>
+      <input type="range" id="txSlider" min="-100" max="100" value="20"
+             oninput="txVal=+this.value;document.getElementById('txLbl').textContent=this.value">
+      <label>TY: <span id="tyLbl">20</span></label>
+      <input type="range" id="tySlider" min="-100" max="100" value="20"
+             oninput="tyVal=+this.value;document.getElementById('tyLbl').textContent=this.value">
+      <label>Angle: <span id="angLbl">30</span>°</label>
+      <input type="range" id="angSlider" min="-180" max="180" value="30"
+             oninput="angVal=+this.value;document.getElementById('angLbl').textContent=this.value">
+      <label>Scale: <span id="sLbl">1.5</span></label>
+      <input type="range" id="sSlider" min="10" max="300" value="150"
+             oninput="scaleVal=this.value/100;document.getElementById('sLbl').textContent=scaleVal.toFixed(2)">
+    </div>
+
+    <div class="section" id="panelClip" style="display:none">
+      <h3>Clipping</h3>
+      <button class="btn active" id="btnCS" onclick="clipAlgo='cs'">Cohen–Sutherland</button>
+      <button class="btn" id="btnSH" onclick="clipAlgo='sh'">Sutherland–Hodgman</button>
+      <button class="btn" onclick="runClip()">▶ Run Clip</button>
+      <button class="btn danger" onclick="clearClip()">Clear Clip</button>
+      <p style="font-size:10px;color:var(--text2);margin-top:6px">
+        Yellow dashed box = clip window.<br>Draw lines/shapes to clip.
+      </p>
+    </div>
+
+    <div class="section" id="panelCurves" style="display:none">
+      <h3>Curves</h3>
+      <label>B-Spline degree: <span id="degLbl">3</span></label>
+      <input type="range" id="degSlider" min="1" max="5" value="3"
+             oninput="bsplineDeg=+this.value;document.getElementById('degLbl').textContent=this.value;redraw()">
+      <button class="btn" onclick="clearCurvePoints()">Clear Points</button>
+      <button class="btn" onclick="animateCurve()">▶ Animate Point</button>
+      <p style="font-size:10px;color:var(--text2);margin-top:6px">
+        Click canvas to add control points.<br>
+        Cyan = Bezier, Orange = B-Spline
+      </p>
+    </div>
+
+    <!-- Colour -->
+    <div class="section">
+      <h3>Colour</h3>
+      <div class="color-row" id="colourRow">
+        <div class="color-swatch sel" style="background:#22c8e8" onclick="setColour('#22c8e8',this)"></div>
+        <div class="color-swatch" style="background:#f97316" onclick="setColour('#f97316',this)"></div>
+        <div class="color-swatch" style="background:#a78bfa" onclick="setColour('#a78bfa',this)"></div>
+        <div class="color-swatch" style="background:#4ade80" onclick="setColour('#4ade80',this)"></div>
+        <div class="color-swatch" style="background:#f87171" onclick="setColour('#f87171',this)"></div>
+        <div class="color-swatch" style="background:#fbbf24" onclick="setColour('#fbbf24',this)"></div>
+        <div class="color-swatch" style="background:#ffffff" onclick="setColour('#ffffff',this)"></div>
+        <div class="color-swatch" style="background:#38bdf8" onclick="setColour('#38bdf8',this)"></div>
+      </div>
+    </div>
+
+    <!-- Canvas controls -->
+    <div class="section">
+      <h3>Canvas</h3>
+      <button class="btn" onclick="toggleGrid()">Toggle Grid</button>
+      <button class="btn" onclick="zoomIn()">Zoom In (+)</button>
+      <button class="btn" onclick="zoomOut()">Zoom Out (−)</button>
+      <button class="btn" onclick="resetView()">Reset View</button>
+      <button class="btn" onclick="undoAction()">Undo (Ctrl+Z)</button>
+      <button class="btn danger" onclick="clearAll()">Clear All</button>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div id="canvasWrap">
+    <canvas id="cgCanvas"></canvas>
+  </div>
+
+  <!-- Right panel -->
+  <div id="rightPanel">
+    <div class="section" style="border-bottom:1px solid var(--border);padding:8px 12px">
+      <h3>Performance Chart</h3>
+    </div>
+    <canvas id="perfCanvas" width="220" height="200"></canvas>
+    <div class="section" style="border-bottom:1px solid var(--border);padding:4px 12px">
+      <h3>Log</h3>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div id="statusbar">
+  <span>x: <span class="stat" id="sX">0</span></span>
+  <span>y: <span class="stat" id="sY">0</span></span>
+  <span>mode: <span class="stat" id="sMode">draw</span></span>
+  <span>shapes: <span class="stat" id="sShapes">0</span></span>
+  <span>algo: <span class="stat" id="sAlgo">DDA</span></span>
+  <span class="fps-badge">FPS: <span id="sFPS">60</span></span>
+</div>
+
+<script>
+// ============================================================
+// CG Demo — Full Implementation
+// ============================================================
+
+const canvas = document.getElementById('cgCanvas');
+const ctx    = canvas.getContext('2d');
+const pc     = document.getElementById('perfCanvas');
+const pctx   = pc.getContext('2d');
+
+// ── State ──────────────────────────────────────────────────
+let mode = 'draw', lineAlgo = 'dda', circRadius = 40;
+let clipAlgo = 'cs', bsplineDeg = 3;
+let drawColour = '#22c8e8';
+let shapes = [], undoStack = [], curvePoints = [];
+let txVal = 20, tyVal = 20, angVal = 30, scaleVal = 1.5;
+let showGrid = true, zoom = 1, panX = 0, panY = 0;
+let isDrawing = false, startX = 0, startY = 0;
+let perfData = [];
+let animT = 0, animRunning = false;
+let clipResult = null;
+let transformedShapes = [];
+
+// Resize canvas to parent
+function resize() {
+  const wrap = document.getElementById('canvasWrap');
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  redraw();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── Coordinate transforms ───────────────────────────────────
+function toScreen(wx, wy) {
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  return [cx + (wx + panX) * zoom, cy - (wy + panY) * zoom];
+}
+function toWorld(sx, sy) {
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  return [(sx - cx) / zoom - panX, (cy - sy) / zoom - panY];
+}
+
+// ── Logging ─────────────────────────────────────────────────
+function log(msg, cls='') {
+  const div = document.getElementById('log');
+  const el  = document.createElement('div');
+  el.className = 'log-line ' + cls;
+  el.textContent = '[' + new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '] ' + msg;
+  div.prepend(el);
+  if (div.children.length > 80) div.lastChild.remove();
+}
+
+// ── Algorithm implementations ───────────────────────────────
+
+// DDA Line
+function ddaPixels(x0, y0, x1, y1) {
+  const t0 = performance.now();
+  const dx = x1-x0, dy = y1-y0;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
+  if (steps === 0) return {px:[[Math.round(x0),Math.round(y0)]],ms:0,count:1};
+  const xi = dx/steps, yi = dy/steps;
+  const px = [];
+  let x = x0, y = y0;
+  for (let i = 0; i <= steps; i++) {
+    px.push([Math.round(x), Math.round(y)]);
+    x += xi; y += yi;
+  }
+  return {px, ms: performance.now()-t0, count: px.length};
+}
+
+// Bresenham Line
+function breshamPixels(x0, y0, x1, y1) {
+  const t0 = performance.now();
+  x0=Math.round(x0); y0=Math.round(y0); x1=Math.round(x1); y1=Math.round(y1);
+  const dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
+  const sx = x0<x1?1:-1, sy = y0<y1?1:-1;
+  let err = dx-dy;
+  const px = [];
+  while (true) {
+    px.push([x0, y0]);
+    if (x0===x1 && y0===y1) break;
+    const e2 = 2*err;
+    if (e2 > -dy) { err -= dy; x0 += sx; }
+    if (e2 < dx)  { err += dx; y0 += sy; }
+  }
+  return {px, ms: performance.now()-t0, count: px.length};
+}
+
+// Midpoint Circle
+function midpointCircle(cx, cy, r) {
+  const t0 = performance.now();
+  const px = [];
+  let x = 0, y = r, p = 1-r;
+  function p8(x,y){ [[x,y],[-x,y],[x,-y],[-x,-y],[y,x],[-y,x],[y,-x],[-y,-x]].forEach(([a,b])=>px.push([cx+a,cy+b])); }
+  p8(x,y);
+  while (x < y) {
+    x++;
+    if (p < 0) p += 2*x+1;
+    else { y--; p += 2*(x-y)+1; }
+    p8(x,y);
+  }
+  return {px, ms: performance.now()-t0, count: px.length};
+}
+
+// Bresenham Circle
+function breshamCircle(cx, cy, r) {
+  const t0 = performance.now();
+  const px = [];
+  let x = 0, y = r, p = 3-2*r;
+  function p8(x,y){ [[x,y],[-x,y],[x,-y],[-x,-y],[y,x],[-y,x],[y,-x],[-y,-x]].forEach(([a,b])=>px.push([cx+a,cy+b])); }
+  p8(x,y);
+  while (x <= y) {
+    x++;
+    if (p <= 0) p += 4*x+6;
+    else { y--; p += 4*(x-y)+10; }
+    p8(x,y);
+  }
+  return {px, ms: performance.now()-t0, count: px.length};
+}
+
+// ── Pixel rendering ─────────────────────────────────────────
+function renderPixels(pixels, colour) {
+  ctx.fillStyle = colour;
+  pixels.forEach(([x, y]) => {
+    const [sx, sy] = toScreen(x, y);
+    ctx.fillRect(sx-0.5, sy-0.5, Math.max(1, zoom), Math.max(1, zoom));
+  });
+}
+
+// ── Transformations (3×3 matrices) ──────────────────────────
+function mulM(A, B) {
+  const C = Array(9).fill(0);
+  for (let r=0;r<3;r++) for (let c=0;c<3;c++) for (let k=0;k<3;k++)
+    C[r*3+c] += A[r*3+k]*B[k*3+c];
+  return C;
+}
+function mulPt(M, [x,y]) {
+  const w = M[6]*x + M[7]*y + M[8];
+  return [(M[0]*x+M[1]*y+M[2])/w, (M[3]*x+M[4]*y+M[5])/w];
+}
+const I3 = [1,0,0,0,1,0,0,0,1];
+function Ttx(tx,ty){ return [1,0,tx,0,1,ty,0,0,1]; }
+function Trot(deg){ const r=deg*Math.PI/180,c=Math.cos(r),s=Math.sin(r); return [c,-s,0,s,c,0,0,0,1]; }
+function Tscl(sx,sy){ return [sx,0,0,0,sy,0,0,0,1]; }
+function Tsh(shx,shy){ return [1,shx,0,shy,1,0,0,0,1]; }
+
+function transformPts(pts, M) { return pts.map(p => mulPt(M, p)); }
+
+function centroid(pts) {
+  const n = pts.length;
+  return pts.reduce(([ax,ay],[bx,by])=>[ax+bx/n,ay+by/n],[0,0]);
+}
+
+// ── Clipping ─────────────────────────────────────────────────
+const CLIP = {xMin:-100,yMin:-60,xMax:100,yMax:60};
+
+function csOutcode(x,y) {
+  let c=0;
+  if (x<CLIP.xMin) c|=1; else if (x>CLIP.xMax) c|=2;
+  if (y<CLIP.yMin) c|=4; else if (y>CLIP.yMax) c|=8;
+  return c;
+}
+function cohenSutherland(x0,y0,x1,y1) {
+  let c0=csOutcode(x0,y0), c1=csOutcode(x1,y1);
+  for (;;) {
+    if (!(c0|c1)) return {ok:true,x0,y0,x1,y1};
+    if (c0&c1)    return {ok:false};
+    const cOut = c0||c1;
+    let x,y;
+    if (cOut&8){ x=x0+(x1-x0)*(CLIP.yMax-y0)/(y1-y0); y=CLIP.yMax; }
+    else if(cOut&4){ x=x0+(x1-x0)*(CLIP.yMin-y0)/(y1-y0); y=CLIP.yMin; }
+    else if(cOut&2){ y=y0+(y1-y0)*(CLIP.xMax-x0)/(x1-x0); x=CLIP.xMax; }
+    else { y=y0+(y1-y0)*(CLIP.xMin-x0)/(x1-x0); x=CLIP.xMin; }
+    if (cOut===c0) { x0=x;y0=y;c0=csOutcode(x0,y0); }
+    else           { x1=x;y1=y;c1=csOutcode(x1,y1); }
+  }
+}
+
+function inside(p,axis){ const {xMin,yMin,xMax,yMax}=CLIP; return [p[0]>=xMin,p[0]<=xMax,p[1]>=yMin,p[1]<=yMax][axis]; }
+function clipIntersect(s,p,axis){
+  const {xMin,yMin,xMax,yMax}=CLIP;
+  const t = [[xMin-s[0],p[0]-s[0]],[xMax-s[0],p[0]-s[0]],[yMin-s[1],p[1]-s[1]],[yMax-s[1],p[1]-s[1]]][axis];
+  const tt = t[0]/t[1];
+  return [s[0]+tt*(p[0]-s[0]), s[1]+tt*(p[1]-s[1])];
+}
+function sutherlandHodgman(poly) {
+  let out = poly;
+  for (let axis=0;axis<4;axis++){
+    const inp = out; out = [];
+    for (let i=0;i<inp.length;i++){
+      const s=inp[i], p=inp[(i+1)%inp.length];
+      const si=inside(s,axis), pi=inside(p,axis);
+      if (si&&pi) out.push(p);
+      else if (si&&!pi) out.push(clipIntersect(s,p,axis));
+      else if (!si&&pi){ out.push(clipIntersect(s,p,axis)); out.push(p); }
+    }
+    if (!out.length) break;
+  }
+  return out;
+}
+
+// ── Bezier / B-Spline ────────────────────────────────────────
+function deCasteljau(pts, t) {
+  let q = pts.map(p=>[...p]);
+  for (let r=1;r<q.length;r++)
+    for (let i=0;i<q.length-r;i++)
+      q[i]=[(1-t)*q[i][0]+t*q[i+1][0],(1-t)*q[i][1]+t*q[i+1][1]];
+  return q[0];
+}
+function bezierCurve(pts, segs=200) {
+  const out = [];
+  for (let i=0;i<=segs;i++) out.push(deCasteljau(pts, i/segs));
+  return out;
+}
+
+function clampedKnots(n, d) {
+  const m=n+d+2, T=new Array(m).fill(0);
+  for (let i=0;i<=d;i++) T[i]=0;
+  for (let i=m-1-d;i<m;i++) T[i]=1;
+  const inner=n-d;
+  for (let i=1;i<=inner;i++) T[d+i]=i/(inner+1);
+  return T;
+}
+function N(T,i,d,t) {
+  if (d===0) return (T[i]<=t && t<T[i+1])?1:0;
+  let l=0,r=0,den;
+  den=T[i+d]-T[i]; if(den>1e-9) l=(t-T[i])/den*N(T,i,d-1,t);
+  den=T[i+d+1]-T[i+1]; if(den>1e-9) r=(T[i+d+1]-t)/den*N(T,i+1,d-1,t);
+  return l+r;
+}
+function bsplineCurve(ctrl, deg, segs=200) {
+  const n=ctrl.length-1;
+  if (n<deg) return [];
+  const T=clampedKnots(n,deg);
+  const out=[];
+  for (let i=0;i<segs;i++){
+    const t=i/segs;
+    let x=0,y=0;
+    for (let j=0;j<=n;j++){const b=N(T,j,deg,t);x+=b*ctrl[j][0];y+=b*ctrl[j][1];}
+    out.push([x,y]);
+  }
+  out.push([...ctrl[n]]);
+  return out;
+}
+
+// ── Grid ─────────────────────────────────────────────────────
+function drawGrid() {
+  if (!showGrid) return;
+  const sp = 20;
+  const [wx0,wy0]=toWorld(0,0);
+  const [wx1,wy1]=toWorld(canvas.width,canvas.height);
+  ctx.strokeStyle='rgba(255,255,255,0.05)';
+  ctx.lineWidth=0.5;
+  ctx.beginPath();
+  for (let x=Math.floor(wx0/sp)*sp; x<=wx1; x+=sp){
+    const [sx]=toScreen(x,0); ctx.moveTo(sx,0); ctx.lineTo(sx,canvas.height);
+  }
+  for (let y=Math.floor(wy1/sp)*sp; y<=wy0; y+=sp){
+    const [,sy]=toScreen(0,y); ctx.moveTo(0,sy); ctx.lineTo(canvas.width,sy);
+  }
+  ctx.stroke();
+  // Axes
+  ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath();
+  const [ax]=toScreen(0,0); ctx.moveTo(ax,0); ctx.lineTo(ax,canvas.height);
+  const [,ay]=toScreen(0,0); ctx.moveTo(0,ay); ctx.lineTo(canvas.width,ay);
+  ctx.stroke();
+}
+
+// ── Clip window ─────────────────────────────────────────────
+function drawClipWindow() {
+  if (mode !== 'clip') return;
+  const [x0,y0]=toScreen(CLIP.xMin,CLIP.yMax);
+  const [x1,y1]=toScreen(CLIP.xMax,CLIP.yMin);
+  ctx.strokeStyle='rgba(255,200,50,0.7)';
+  ctx.lineWidth=1.5;
+  ctx.setLineDash([6,4]);
+  ctx.strokeRect(x0,y0,x1-x0,y1-y0);
+  ctx.setLineDash([]);
+  // Label
+  ctx.fillStyle='rgba(255,200,50,0.5)';
+  ctx.font='10px JetBrains Mono';
+  ctx.fillText('clip window',x0+4,y0+14);
+}
+
+// ── Shape rendering ─────────────────────────────────────────
+function renderShape(s, col) {
+  const c = col || s.colour || drawColour;
+  if (s.type === 'line' && s.pts.length >= 2) {
+    const [x0,y0] = s.pts[0], [x1,y1] = s.pts[1];
+    const res = s.algo === 'bres' ? breshamPixels(x0,y0,x1,y1) : ddaPixels(x0,y0,x1,y1);
+    renderPixels(res.px, c);
+  } else if (s.type === 'circle' && s.pts.length >= 1) {
+    const [cx,cy] = s.pts[0];
+    const res = s.algo === 'bc' ? breshamCircle(cx,cy,s.r) : midpointCircle(cx,cy,s.r);
+    renderPixels(res.px, c);
+  }
+}
+
+// ── Full redraw ──────────────────────────────────────────────
+function redraw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawGrid();
+  drawClipWindow();
+
+  // Clip result visualisation
+  if (clipResult && mode === 'clip') {
+    clipResult.forEach(item => {
+      if (item.type==='line') {
+        if (item.clipped) {
+          // Rejected portion
+          ctx.strokeStyle='rgba(255,80,80,0.35)'; ctx.lineWidth=1.5;
+          ctx.setLineDash([4,4]);
+          const [sx0,sy0]=toScreen(item.ox0,item.oy0);
+          const [sx1,sy1]=toScreen(item.ox1,item.oy1);
+          ctx.beginPath(); ctx.moveTo(sx0,sy0); ctx.lineTo(sx1,sy1); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        if (item.ok) {
+          const res = breshamPixels(item.x0,item.y0,item.x1,item.y1);
+          renderPixels(res.px, '#4ade80');
+        }
+      } else if (item.type==='poly') {
+        // Sutherland-Hodgman result
+        const poly = item.clipped;
+        if (poly.length > 1) {
+          ctx.fillStyle='rgba(74,222,128,0.15)';
+          ctx.strokeStyle='#4ade80'; ctx.lineWidth=2;
+          ctx.beginPath();
+          const [sx0,sy0]=toScreen(poly[0][0],poly[0][1]);
+          ctx.moveTo(sx0,sy0);
+          poly.forEach(([wx,wy])=>{const[sx,sy]=toScreen(wx,wy);ctx.lineTo(sx,sy);});
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+        }
+        // Original
+        ctx.strokeStyle='rgba(255,100,100,0.4)'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+        ctx.beginPath();
+        const[x0,y0]=toScreen(item.original[0][0],item.original[0][1]);
+        ctx.moveTo(x0,y0);
+        item.original.forEach(([wx,wy])=>{const[sx,sy]=toScreen(wx,wy);ctx.lineTo(sx,sy);});
+        ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+      }
+    });
+    return;
+  }
+
+  // All shapes
+  shapes.forEach(s => renderShape(s));
+
+  // Transformed overlays
+  if (mode === 'transform') {
+    transformedShapes.forEach(s => renderShape(s, '#a78bfa'));
+  }
+
+  // Curves
+  if (mode === 'curves' && curvePoints.length >= 2) {
+    // Control polygon
+    ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+    ctx.beginPath();
+    const[cpx0,cpy0]=toScreen(curvePoints[0][0],curvePoints[0][1]);
+    ctx.moveTo(cpx0,cpy0);
+    curvePoints.forEach(([wx,wy])=>{ const[sx,sy]=toScreen(wx,wy); ctx.lineTo(sx,sy); });
+    ctx.stroke(); ctx.setLineDash([]);
+
+    // Bezier
+    const bc = bezierCurve(curvePoints);
+    ctx.strokeStyle='#22c8e8'; ctx.lineWidth=2.5;
+    ctx.beginPath();
+    bc.forEach(([wx,wy],i)=>{const[sx,sy]=toScreen(wx,wy);i?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy);});
+    ctx.stroke();
+
+    // B-Spline
+    if (curvePoints.length > bsplineDeg) {
+      const bsp = bsplineCurve(curvePoints, bsplineDeg);
+      ctx.strokeStyle='#f97316'; ctx.lineWidth=2;
+      ctx.beginPath();
+      bsp.forEach(([wx,wy],i)=>{const[sx,sy]=toScreen(wx,wy);i?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy);});
+      ctx.stroke();
+    }
+
+    // Control points
+    curvePoints.forEach(([wx,wy])=>{
+      const[sx,sy]=toScreen(wx,wy);
+      ctx.fillStyle='#fbbf24'; ctx.beginPath(); ctx.arc(sx,sy,5,0,Math.PI*2); ctx.fill();
+    });
+
+    // Animated point on curve
+    if (animRunning) {
+      const pt = deCasteljau(curvePoints, animT);
+      const [sx,sy] = toScreen(pt[0],pt[1]);
+      ctx.fillStyle='#f87171';
+      ctx.beginPath(); ctx.arc(sx,sy,7,0,Math.PI*2); ctx.fill();
+      // de Casteljau levels
+      let q=curvePoints.map(p=>[...p]);
+      for (let r=1;r<q.length;r++){
+        const nq=[];
+        for(let i=0;i<q.length-r;i++) nq.push([(1-animT)*q[i][0]+animT*q[i+1][0],(1-animT)*q[i][1]+animT*q[i+1][1]]);
+        ctx.strokeStyle=`rgba(255,255,100,${0.3+r*0.15})`; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+        ctx.beginPath();
+        const[lx0,ly0]=toScreen(nq[0][0],nq[0][1]); ctx.moveTo(lx0,ly0);
+        nq.forEach(([wx,wy])=>{const[sx,sy]=toScreen(wx,wy);ctx.lineTo(sx,sy);});
+        ctx.stroke(); ctx.setLineDash([]);
+        q=nq;
+      }
+    }
+  }
+
+  // Drawing preview
+  if (isDrawing && mode === 'draw') {
+    renderShape({type:'line',pts:[startXW,startYW,[previewX,previewY]].slice(0,1).concat([[previewX,previewY]]),algo:lineAlgo,colour:drawColour});
+  }
+  if (isDrawing && mode==='draw') {
+    const res = lineAlgo==='bres' ? breshamPixels(startXW[0],startXW[1],previewX,previewY)
+                                   : ddaPixels(startXW[0],startXW[1],previewX,previewY);
+    renderPixels(res.px, drawColour+'99');
+  }
+}
+
+let startXW=[0,0], previewX=0, previewY=0;
+
+// ── Mouse events ─────────────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const [wx,wy] = toWorld(sx,sy);
+
+  if (mode === 'draw') {
+    isDrawing = true;
+    startXW = [wx,wy];
+  } else if (mode === 'curves') {
+    curvePoints.push([wx,wy]);
+    log(`Control point (${wx.toFixed(1)},${wy.toFixed(1)}) added  [${curvePoints.length} total]`, 'info');
+    redraw();
+  } else if (mode === 'transform') {
+    // Select closest shape to click
+    if (shapes.length > 0) {
+      log('Select shape then press transform buttons', 'info');
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const [wx,wy] = toWorld(sx,sy);
+  document.getElementById('sX').textContent = wx.toFixed(1);
+  document.getElementById('sY').textContent = wy.toFixed(1);
+  previewX = wx; previewY = wy;
+
+  // Drag control points
+  if (mode === 'curves' && e.buttons === 1) {
+    let best=-1, bestD=Infinity;
+    curvePoints.forEach(([px,py],i)=>{const d=(px-wx)**2+(py-wy)**2; if(d<bestD){bestD=d;best=i;}});
+    if (best>=0 && bestD < (20/zoom)**2) { curvePoints[best]=[wx,wy]; redraw(); }
+  }
+
+  if (isDrawing && mode==='draw') redraw();
+});
+
+canvas.addEventListener('mouseup', e => {
+  const rect = canvas.getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const [wx,wy] = toWorld(sx,sy);
+
+  if (isDrawing && mode==='draw') {
+    isDrawing = false;
+    const dist = Math.hypot(wx-startXW[0], wy-startXW[1]);
+    if (dist < 2) {
+      // Small click → circle
+      if (lineAlgo === 'mc' || lineAlgo === 'bc') {
+        const res = lineAlgo==='mc' ? midpointCircle(Math.round(wx),Math.round(wy),circRadius)
+                                    : breshamCircle (Math.round(wx),Math.round(wy),circRadius);
+        undoStack.push(JSON.parse(JSON.stringify(shapes)));
+        shapes.push({type:'circle',pts:[[wx,wy]],r:circRadius,algo:lineAlgo,colour:drawColour});
+        perfData.push({label:lineAlgo==='mc'?'Midpoint':'Bres.Circle',ms:res.ms,count:res.count});
+        if (perfData.length>6) perfData.shift();
+        log(`${lineAlgo==='mc'?'Midpoint':'Bresenham'} circle r=${circRadius} | ${res.count} px | ${res.ms.toFixed(4)}ms`,'perf');
+        updatePerf();
+      }
+    } else {
+      // Line
+      const algoFn = lineAlgo==='bres' ? breshamPixels : ddaPixels;
+      const res = algoFn(startXW[0],startXW[1],wx,wy);
+      undoStack.push(JSON.parse(JSON.stringify(shapes)));
+      shapes.push({type:'line',pts:[startXW,[wx,wy]],algo:lineAlgo,colour:drawColour});
+      perfData.push({label:lineAlgo==='dda'?'DDA':'Bresenham',ms:res.ms,count:res.count});
+      if (perfData.length>6) perfData.shift();
+      log(`${lineAlgo.toUpperCase()} line | ${res.count} px | ${res.ms.toFixed(5)}ms`,'perf');
+
+      // Compare both
+      const r2 = (lineAlgo==='dda'?breshamPixels:ddaPixels)(startXW[0],startXW[1],wx,wy);
+      perfData.push({label:lineAlgo==='dda'?'Bresenham':'DDA',ms:r2.ms,count:r2.count});
+      if (perfData.length>6) perfData.shift();
+      updatePerf();
+    }
+    document.getElementById('sShapes').textContent = shapes.length;
+    redraw();
+  }
+});
+
+// Zoom
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom *= e.deltaY<0 ? 1.1 : 0.91;
+  zoom = Math.max(0.1, Math.min(20, zoom));
+  redraw();
+},{passive:false});
+
+// ── UI actions ───────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('#topbar .tab').forEach((t,i)=>
+    t.classList.toggle('active',['draw','transform','clip','curves','perf'][i]===m));
+  ['panelDraw','panelTransform','panelClip','panelCurves'].forEach((id,i)=>
+    document.getElementById(id).style.display=(['draw','transform','clip','curves'][i]===m)?'block':'none');
+  document.getElementById('sMode').textContent = m;
+  if (m==='perf') drawPerfChart();
+  clipResult = null;
+  redraw();
+}
+
+function setLineAlgo(a) {
+  lineAlgo = a;
+  ['btnDDA','btnBres','btnMC','btnBC'].forEach((id,i)=>
+    document.getElementById(id).classList.toggle('active',['dda','bres','mc','bc'][i]===a));
+  document.getElementById('sAlgo').textContent = a.toUpperCase();
+}
+
+function setColour(c, el) {
+  drawColour = c;
+  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function applyTransform(type) {
+  if (!shapes.length) { log('No shapes to transform','info'); return; }
+  const last = shapes[shapes.length-1];
+  let pts = last.pts.map(([x,y])=>[x,y]);
+  const [cx,cy] = centroid(pts);
+  let M;
+  switch(type) {
+    case 'translate': M=Ttx(txVal,tyVal); break;
+    case 'rotate':    M=mulM(mulM(Ttx(cx,cy),Trot(angVal)),Ttx(-cx,-cy)); break;
+    case 'scale':     M=mulM(mulM(Ttx(cx,cy),Tscl(scaleVal,scaleVal)),Ttx(-cx,-cy)); break;
+    case 'reflectX':  M=mulM(mulM(Ttx(cx,cy),Tscl(1,-1)),Ttx(-cx,-cy)); break;
+    case 'reflectY':  M=mulM(mulM(Ttx(cx,cy),Tscl(-1,1)),Ttx(-cx,-cy)); break;
+    case 'shear':     M=Tsh(0.5,0); break;
+  }
+  const newPts = transformPts(pts,M);
+  const newShape = {...last, pts:newPts, colour:drawColour};
+  shapes.push(newShape);
+  log(`${type} applied to shape | orig→transformed shown`,'ok');
+  document.getElementById('sShapes').textContent = shapes.length;
+  redraw();
+}
+
+function resetTransform() { shapes = shapes.filter(s=>!s._transformed); redraw(); }
+
+function runClip() {
+  clipResult = [];
+  shapes.forEach(s => {
+    if (s.type === 'line') {
+      const [x0,y0]=s.pts[0],[x1,y1]=s.pts[1];
+      const res = cohenSutherland(x0,y0,x1,y1);
+      clipResult.push({...res,type:'line',ox0:x0,oy0:y0,ox1:x1,oy1:y1,clipped:!res.ok});
+      log(`CS: line ${res.ok?'ACCEPTED':'REJECTED'} | code0=${res.code0||0}`, res.ok?'ok':'info');
+    } else if (s.type === 'poly' || s.type === 'triangle') {
+      const poly = s.pts.map(([x,y])=>[x,y]);
+      const clipped = sutherlandHodgman(poly);
+      clipResult.push({type:'poly',original:poly,clipped});
+      log(`SH: polygon ${poly.length}→${clipped.length} vertices`,'ok');
+    }
+  });
+  redraw();
+}
+
+function clearClip() { clipResult=null; redraw(); }
+function clearCurvePoints() { curvePoints=[]; animRunning=false; redraw(); }
+
+function animateCurve() {
+  if (curvePoints.length < 2) { log('Need at least 2 control points','info'); return; }
+  animRunning = true; animT = 0;
+  function step() {
+    animT = (animT + 0.008) % 1;
+    redraw();
+    if (animRunning) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function toggleGrid()  { showGrid=!showGrid; redraw(); }
+function zoomIn()      { zoom=Math.min(zoom*1.2,20); redraw(); }
+function zoomOut()     { zoom=Math.max(zoom/1.2,.1); redraw(); }
+function resetView()   { zoom=1;panX=0;panY=0; redraw(); }
+function undoAction()  { if(undoStack.length){shapes=undoStack.pop();document.getElementById('sShapes').textContent=shapes.length;redraw();log('Undo','info');} }
+function clearAll()    { undoStack.push(JSON.parse(JSON.stringify(shapes)));shapes=[];curvePoints=[];clipResult=null;document.getElementById('sShapes').textContent=0;redraw();log('Canvas cleared','info'); }
+
+// ── Performance chart ────────────────────────────────────────
+function updatePerf() {
+  const w=pc.width, h=pc.height;
+  pctx.clearRect(0,0,w,h);
+  pctx.fillStyle='#111520'; pctx.fillRect(0,0,w,h);
+  if (!perfData.length) return;
+  const maxMs = Math.max(...perfData.map(p=>p.ms), 0.001);
+  const bw = (w-40) / perfData.length;
+  const colours = ['#22c8e8','#f97316','#a78bfa','#4ade80','#f87171','#fbbf24'];
+  perfData.forEach((p,i) => {
+    const bh = (p.ms/maxMs)*(h-50);
+    const bx = 20 + i*bw + bw*0.1;
+    const by = h-25-bh;
+    pctx.fillStyle = colours[i%colours.length]+'cc';
+    pctx.fillRect(bx,by,bw*0.8,bh);
+    pctx.fillStyle='#8892a4'; pctx.font='9px JetBrains Mono';
+    pctx.save(); pctx.translate(bx+bw*0.4,h-5);
+    pctx.rotate(-Math.PI/4); pctx.fillText(p.label.slice(0,8),0,0); pctx.restore();
+    pctx.fillStyle='#e8eaf0'; pctx.font='8px JetBrains Mono';
+    pctx.fillText(p.ms.toFixed(4),bx,by-2);
+  });
+  pctx.fillStyle='#4a5568'; pctx.font='9px JetBrains Mono';
+  pctx.fillText('Time (ms)',2,12);
+}
+function drawPerfChart() { updatePerf(); }
+
+// ── FPS ──────────────────────────────────────────────────────
+let fpsFrames=0, fpsLast=performance.now();
+function fpsLoop() {
+  fpsFrames++;
+  const now=performance.now();
+  if (now-fpsLast>=500){ document.getElementById('sFPS').textContent=Math.round(fpsFrames*1000/(now-fpsLast));fpsFrames=0;fpsLast=now; }
+  requestAnimationFrame(fpsLoop);
+}
+fpsLoop();
+
+// ── Keyboard shortcuts ────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  if (e.ctrlKey&&e.key==='z') { e.preventDefault(); undoAction(); }
+  if (e.key==='g') toggleGrid();
+  if (e.key==='+') zoomIn();
+  if (e.key==='-') zoomOut();
+  if (e.key==='r') resetView();
+  if (e.key==='c'&&!e.ctrlKey) clearAll();
+  if (['1','2','3','4','5'].includes(e.key))
+    setMode(['draw','transform','clip','curves','perf'][+e.key-1]);
+});
+
+// ── Startup demo shapes ───────────────────────────────────────
+shapes.push({type:'line',pts:[[-60,-30],[60,30]],algo:'bres',colour:'#22c8e8'});
+shapes.push({type:'line',pts:[[-60,30],[60,-30]],algo:'dda',colour:'#f97316'});
+shapes.push({type:'circle',pts:[[0,0]],r:40,algo:'mc',colour:'#a78bfa'});
+
+log('CG Demo loaded — ready for interaction','ok');
+log('Cyan line: Bresenham | Orange line: DDA | Circle: Midpoint','info');
+updatePerf();
+redraw();
+</script>
+</body>
+</html>
